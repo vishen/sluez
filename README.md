@@ -21,6 +21,9 @@ $ go get -u github.com/vishen/sluez
 ### Releases
 ```
 # TODO: add releases for linux?
+$ curl -L -O https://github.com/vishen/sluez/releases/download/0.1.0/sluez_v0.1.0.tar.gz
+$ tar -zxvf sluez_v0.1.0.tar.gz
+$ ./sluez
 ```
 
 ## Examples
