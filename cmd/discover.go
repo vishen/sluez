@@ -33,10 +33,12 @@ var discoverCmd = &cobra.Command{
 		}
 		b, err := newBluez(cmd)
 		if err != nil {
-			return err
+			fmt.Printf("unable to get bluez client: %v\n", err)
+			return nil
 		}
 		if err := b.StartDiscovery(adapter); err != nil {
-			return errors.Wrap(err, "unable to start discovery")
+			fmt.Printf("unable to start discovery: %v", err)
+			return nil
 		}
 
 		fmt.Println("Adapters:")

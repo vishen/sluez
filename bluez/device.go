@@ -15,6 +15,8 @@ const (
 	dbusObjectManagerPath    = "org.freedesktop.DBus.ObjectManager.GetManagedObjects"
 )
 
+// Adapter holds the bluetooth device adapter installed for a system.
+// This can be retrieved by `hciconfig -a`.
 type Adapter struct {
 	Path         string
 	Name         string
@@ -26,6 +28,7 @@ type Adapter struct {
 	Discovering  bool
 }
 
+// Device hold bluetooth device information.
 type Device struct {
 	Path      string
 	Name      string
@@ -38,20 +41,24 @@ type Device struct {
 	Blocked   bool
 }
 
+// Bluez represents an overview of the bluetooth adapters and
+// devices installed and configured on a system. A connection
+// to `bluez` dbus is also used to interact with the bluetooth
+// server on a system.
 type Bluez struct {
 	conn *dbus.Conn
-
-	adapterDefaultIndex int
-	deviceDefaultIndex  int
 
 	Adapters []Adapter
 	Devices  []Device
 }
 
+// NewBluez returns a new Bluez
 func NewBluez(conn *dbus.Conn) *Bluez {
 	return &Bluez{conn: conn}
 }
 
+// ConvertToDevices converts a map of dbus objects to a common Device
+// structure.
 func (b *Bluez) ConvertToDevices(path string, values map[string]map[string]dbus.Variant) []Device {
 	/*
 		org.bluez.Device1
@@ -92,7 +99,10 @@ func (b *Bluez) ConvertToDevices(path string, values map[string]map[string]dbus.
 	return devices
 }
 
-// TODO(vishen): Better name?
+// PopulateCache will query system for known bluetooth adapters and devices
+// and will store them on the Bluez structure.
+// TODO(vishen): Better name than 'PopulateCache'? This is gathering information
+// about bluetooth devices and adapters...
 func (b *Bluez) PopulateCache() error {
 	results, err := b.ManagedObjects()
 	if err != nil {
@@ -143,6 +153,8 @@ func (b *Bluez) PopulateCache() error {
 	return nil
 }
 
+// ManagedObjects gets all bluetooth devices and adpaters that are currently
+// managed by bluez.
 func (b *Bluez) ManagedObjects() (map[dbus.ObjectPath]map[string]map[string]dbus.Variant, error) {
 	result := make(map[dbus.ObjectPath]map[string]map[string]dbus.Variant)
 	if err := b.conn.Object(dbusBluetoothPath, "/").Call(dbusObjectManagerPath, 0).Store(&result); err != nil {
@@ -151,18 +163,26 @@ func (b *Bluez) ManagedObjects() (map[dbus.ObjectPath]map[string]map[string]dbus
 	return result, nil
 }
 
-func (b *Bluez) CallAdapter(adapterName, method string, flags dbus.Flags, args ...interface{}) *dbus.Call {
-	path := "/org/bluez/" + adapterName
+// CallAdapter is used to interact with the bluez Adapter dbus interface.
+// https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/doc/adapter-api.txt
+func (b *Bluez) CallAdapter(adapter, method string, flags dbus.Flags, args ...interface{}) *dbus.Call {
+	path := "/org/bluez/" + adapter
 	return b.conn.Object(dbusBluetoothPath, dbus.ObjectPath(path)).Call("org.bluez.Adapter1."+method, flags, args...)
 }
 
-func (b *Bluez) StartDiscovery(adapterName string) error {
-	if err := b.CallAdapter(adapterName, "StartDiscovery", 0).Store(); err != nil {
+// StartDiscovery will put the adapter into "discovering" mode, which means
+// the bluetooth device will be able to discover other bluetooth devices
+// that are in pairing mode.
+func (b *Bluez) StartDiscovery(adapter string) error {
+	if err := b.CallAdapter(adapter, "StartDiscovery", 0).Store(); err != nil {
 		return err
 	}
 	return nil
 }
 
+// RemoveDevice will permantently remove the bluetooth device from the
+// adapter. Once a device is removed, it can only be added again by
+// being paired.
 func (b *Bluez) RemoveDevice(adapterName, deviceMac string) error {
 	devicePath := b.devicePath(adapterName, deviceMac)
 	if err := b.CallAdapter(adapterName, "RemoveDevice", 0, devicePath).Store(); err != nil {
@@ -171,6 +191,9 @@ func (b *Bluez) RemoveDevice(adapterName, deviceMac string) error {
 	return nil
 }
 
+// WatchSignal will register to receive events form the bluez dbus interface. Any
+// events received are passed along to the returned channel for the caller to
+// use.
 func (b *Bluez) WatchSignal() chan *dbus.Signal {
 	signalMatch := "type='signal',interface='org.freedesktop.DBus.ObjectManager',path='/'"
 	b.conn.BusObject().Call("org.freedesktop.DBus.AddMatch", 0, signalMatch)
@@ -179,6 +202,7 @@ func (b *Bluez) WatchSignal() chan *dbus.Signal {
 	return ch
 }
 
+// devicePath will normalise the device path
 func (b *Bluez) devicePath(adapterName, deviceMac string) dbus.ObjectPath {
 	path := fmt.Sprintf(
 		"/org/bluez/%s/dev_%s",
@@ -188,24 +212,30 @@ func (b *Bluez) devicePath(adapterName, deviceMac string) dbus.ObjectPath {
 	return dbus.ObjectPath(path)
 }
 
+// CallDevice is used to interact with the bluez Device dbus interface.
 // https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/doc/device-api.txt
 func (b *Bluez) CallDevice(adapterName, deviceMac, method string, flags dbus.Flags, args ...interface{}) *dbus.Call {
 	path := b.devicePath(adapterName, deviceMac)
 	return b.conn.Object(dbusBluetoothPath, path).Call("org.bluez.Device1."+method, flags, args...)
 }
 
+// Pair will attempt to pair a bluetooth device that is in pairing mode.
 func (b *Bluez) Pair(adapterName, deviceMac string) error {
 	return b.CallDevice(adapterName, deviceMac, "Pair", 0).Store()
 }
 
+// Connect will attempt to connect an already paired bluetooth device
+// to an adapter.
 func (b *Bluez) Connect(adapterName, deviceMac string) error {
 	return b.CallDevice(adapterName, deviceMac, "Connect", 0).Store()
 }
 
+// Disconnect will remove the bluetooth device from the adapter.
 func (b *Bluez) Disconnect(adapterName, deviceMac string) error {
 	return b.CallDevice(adapterName, deviceMac, "Disconnect", 0).Store()
 }
 
+// GetDeviceProperties gathers all the properties for a bluetooth device.
 func (b *Bluez) GetDeviceProperties(adapterName, deviceMac string) (map[string]dbus.Variant, error) {
 	result := make(map[string]dbus.Variant)
 	path := b.devicePath(adapterName, deviceMac)
@@ -216,6 +246,7 @@ func (b *Bluez) GetDeviceProperties(adapterName, deviceMac string) (map[string]d
 	return result, nil
 }
 
+// SetDeviceProperty can be used to set certain properties for a bluetooth device.
 func (b *Bluez) SetDeviceProperty(adapterName, deviceMac string, key string, value interface{}) error {
 	path := b.devicePath(adapterName, deviceMac)
 	// TODO(vishen): factor this with the CallDevice functionality

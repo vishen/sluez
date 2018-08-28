@@ -24,11 +24,12 @@ import (
 // removeCmd represents the remove command
 var removeCmd = &cobra.Command{
 	Use:   "remove",
-	Short: "Remove a device from an adapter",
+	Short: "Permanently remove a device from an adapter. A pair is required to reconnect a device.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		b, err := newBluez(cmd)
 		if err != nil {
-			return err
+			fmt.Printf("unable to get bluez client: %v\n", err)
+			return nil
 		}
 		device, adapter, err := deviceAndAdapter(b, cmd)
 		if err != nil {
@@ -36,7 +37,8 @@ var removeCmd = &cobra.Command{
 		}
 		debug("removing adapter=%s device=%s", adapter, device)
 		if err := b.RemoveDevice(adapter, device); err != nil {
-			return errors.Wrapf(err, "unable to remove to device %q", device)
+			fmt.Printf("unable to remove to device %q: %v", device, err)
+			return nil
 		}
 		fmt.Printf("successfully removed %q and %q\n", device, adapter)
 		return nil

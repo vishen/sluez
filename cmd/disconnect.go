@@ -28,7 +28,8 @@ var disconnectCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		b, err := newBluez(cmd)
 		if err != nil {
-			return err
+			fmt.Printf("unable to get bluez client: %v\n", err)
+			return nil
 		}
 		device, adapter, err := deviceAndAdapter(b, cmd)
 		if err != nil {
@@ -36,7 +37,8 @@ var disconnectCmd = &cobra.Command{
 		}
 		debug("disconnecting to adapter=%s device=%s", adapter, device)
 		if err := b.Disconnect(adapter, device); err != nil {
-			return errors.Wrapf(err, "unable to disconnect to device %q", device)
+			fmt.Printf("unable to disconnect to device %q: %v", device, err)
+			return nil
 		}
 		fmt.Printf("successfully disconnected %q and %q\n", device, adapter)
 		return nil

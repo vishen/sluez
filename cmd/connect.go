@@ -16,6 +16,8 @@ package cmd
 
 import (
 	"fmt"
+	"os/exec"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -24,11 +26,12 @@ import (
 // connectCmd represents the connect command
 var connectCmd = &cobra.Command{
 	Use:   "connect",
-	Short: "Connect a device to an adapter",
+	Short: "Connect a paired bluetooth device to an adapter",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		b, err := newBluez(cmd)
 		if err != nil {
-			return err
+			fmt.Printf("unable to get bluez client: %v\n", err)
+			return nil
 		}
 		device, adapter, err := deviceAndAdapter(b, cmd)
 		if err != nil {
@@ -36,13 +39,18 @@ var connectCmd = &cobra.Command{
 		}
 		debug("connecting to adapter=%s device=%s", adapter, device)
 		if err := b.Connect(adapter, device); err != nil {
-			return errors.Wrapf(err, "unable to connect to device %q", device)
+			fmt.Printf("unable to connect to device %q: %v\n", device, err)
+			return nil
 		}
 		fmt.Printf("successfully connected %q and %q\n", device, adapter)
 
-		// TODO(vishen): Need to manually set the card profile for pulseaudio, this _should_
-		// happen already, but for some reason it doesn't.
-		// pactl set-card-profile bluez_card.00_18_09_1F_C3_29 a2dp_sink
+		// NOTE: Need to manually set the card profile for pulseaudio, this _should_
+		// happen already, but for some reason it doesn't always happen. This tends
+		// to happen when the computer has been idle for a while.
+		// pactl set-card-profile bluez_card.2C_41_A1_49_37_CF a2dp_sink
+		// TODO(vishen): pulseaudio can be controlled via dbus, look at using that
+		// instead
+		exec.Command("pactl", "set-card-profile", fmt.Sprintf("bluez_card.%s", strings.Replace(device, ":", "_", -1)), "a2dp_sink").Run()
 
 		return nil
 	},

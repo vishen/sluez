@@ -35,7 +35,8 @@ var pairCmd = &cobra.Command{
 		deviceName, _ := cmd.Flags().GetString("device-name")
 		b, err := newBluez(cmd)
 		if err != nil {
-			return err
+			fmt.Printf("unable to get bluez client: %v\n", err)
+			return nil
 		}
 
 		// "pair" is different from the rest of the commands as the device

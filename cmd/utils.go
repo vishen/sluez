@@ -113,6 +113,6 @@ func similar(match, similarTo string) bool {
 
 func debug(message string, args ...interface{}) {
 	if debugging {
-		fmt.Printf("[sluez] %s", fmt.Sprintf(message, args...))
+		fmt.Printf("[sluez] %s\n", fmt.Sprintf(message, args...))
 	}
 }
