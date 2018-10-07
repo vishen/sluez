@@ -101,6 +101,4 @@ Use "sluez [command] --help" for more information about a command.
 ```
 
 ## TODO
-
-- Add command to be able to set device properties
-- Add command "auto" that will try to pair the device, then connect the device
+- Add command to be able to set device and/or adapter properties

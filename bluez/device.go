@@ -252,3 +252,9 @@ func (b *Bluez) SetDeviceProperty(adapterName, deviceMac string, key string, val
 	// TODO(vishen): factor this with the CallDevice functionality
 	return b.conn.Object(dbusBluetoothPath, path).Call("org.freedesktop.DBus.Properties.Set", 0, "org.bluez.Device1", key, dbus.MakeVariant(value)).Store()
 }
+
+// SetAdapterProperty can be used to set certain properties for a bluetooth device.
+func (b *Bluez) SetAdapterProperty(adapterName, key string, value interface{}) error {
+	path := dbus.ObjectPath("/org/bluez/" + adapterName)
+	return b.conn.Object(dbusBluetoothPath, path).Call("org.freedesktop.DBus.Properties.Set", 0, "org.bluez.Adapter1", key, dbus.MakeVariant(value)).Store()
+}
